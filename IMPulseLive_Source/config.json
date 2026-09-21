@@ -1,0 +1,23 @@
+{
+  "steam_id": "",
+  "timeframe": "all",
+  "team": "radiant",
+  "role": "1",
+  "mode": "1m",
+  "calc": "delta",
+  "strictness": "normal",
+  "decay": false,
+  "role_transfer_enabled": false,
+  "popularity": "meta",
+  "winrate": "all",
+  "eval_method": "bayes",
+  "rank": "all",
+  "lang": "ru",
+  "hotkey": "INSERT",
+  "opacity": 90,
+  "perf_mode": "balanced",
+  "auto": {
+    "resolution": "auto",
+    "grid_highlight": true
+  }
+}

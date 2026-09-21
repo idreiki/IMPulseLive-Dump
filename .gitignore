@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and runtime caches
+*.log
+.license_cache
+scan_debug.log
+
+# Original bulky binaries
+IMPulseLive.exe
+IMPulseLive/
+
+# OS / Editor files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
