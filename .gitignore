@@ -11,9 +11,12 @@ scan_debug.log
 # Original bulky binaries
 IMPulseLive.exe
 IMPulseLive/
+IMPulseLive-new/
+old/
 
 # OS / Editor files
 .vscode/
 .idea/
 Thumbs.db
 Desktop.ini
+screenshots/

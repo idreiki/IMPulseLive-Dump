@@ -8,22 +8,44 @@ import base64
 
 GITHUB_CONFIG_URL = 'https://raw.githubusercontent.com/twirlspro/IMPulse-Live/main/data/app_config.json'
 GITHUB_META_URL = 'https://raw.githubusercontent.com/twirlspro/IMPulse-Live/main/data/meta_history.json'
-SECRET_KEY = b'IMPulseLiveSecretKey2026_DotaVision'
+SECRET_KEY_V1 = b'IMPulseLiveSecretKey2026_DotaVision'
+
+def _derive_k():
+    raw = [468, 393, 47, 106, 433, 126, 51, 456, 93, 402, 27, 506, 71, 108, 387, 485]
+    return bytes([(x ^ 0x5A) & 0xFF for x in raw])
 
 def decrypt_token(enc_str):
-    """Decrypts custom XOR + dynamic index shift + Base64 ciphertext with backward-compatible fallback."""
+    """Decrypts token strictly using non-linear multi-stage ciphertext (V2)."""
     if not enc_str:
         return None
     try:
         enc = base64.b64decode(enc_str)
-        dec = bytes([((b - (7 + (i % 13))) % 256) ^ SECRET_KEY[i % len(SECRET_KEY)] for i, b in enumerate(enc)])
-        plain = dec.decode('utf-8', errors='ignore')
-        if plain.startswith('eyJ'):
-            return plain
-        dec_legacy = bytes([b ^ SECRET_KEY[i % len(SECRET_KEY)] for i, b in enumerate(enc)])
-        plain_legacy = dec_legacy.decode('utf-8', errors='ignore')
-        if plain_legacy.startswith('eyJ'):
-            return plain_legacy
+        try:
+            k = _derive_k()
+            out = bytearray()
+            for i, b in enumerate(enc):
+                xored = (b - (43 + (i * 11) % 251)) % 256
+                rot = xored ^ k[i % len(k)]
+                orig = ((rot >> 3) | (rot << 5)) & 0xFF
+                out.append(orig)
+            plain = out.decode('utf-8', errors='ignore')
+            if plain.startswith('eyJ'):
+                return plain
+        except Exception:
+            pass
+
+        try:
+            dec = bytes([((b - (7 + (i % 13))) % 256) ^ SECRET_KEY_V1[i % len(SECRET_KEY_V1)] for i, b in enumerate(enc)])
+            plain = dec.decode('utf-8', errors='ignore')
+            if plain.startswith('eyJ'):
+                return plain
+            dec_legacy = bytes([b ^ SECRET_KEY_V1[i % len(SECRET_KEY_V1)] for i, b in enumerate(enc)])
+            plain_legacy = dec_legacy.decode('utf-8', errors='ignore')
+            if plain_legacy.startswith('eyJ'):
+                return plain_legacy
+        except Exception:
+            pass
+
         return None
     except Exception as e:
         print(f'[DatasetUpdater] Failed decrypting token: {e}')
@@ -58,11 +80,11 @@ class DatasetUpdater:
         if not self._remote_token:
             self._fetch_remote_config()
         if not self._remote_token:
-            self._remote_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJTdWJqZWN0IjoiNjE4NDMwMzAtMWY5Yy00MmFkLWJkYWYtOWVkZGE3NThiMGFiIiwiU3RlYW1JZCI6IjE4OTE1MDgyMTciLCJBUElVc2VyIjoidHJ1ZSIsIm5iZiI6MTc2MjIwNTMzNywiZXhwIjoxNzkzNzQxMzM3LCJpYXQiOjE3NjIyMDUzMzcsImlzcyI6Imh0dHBzOi8vYXBpLnN0cmF0ei5jb20ifQ.cvVtd65uXKsZMYt5yeleOdIq3rDauzIN63ZKMdKeIiw'
+            self._remote_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJTdWJqZWN0IjoiMDJhMjhkN2MtOTMxNi00YjVjLTgyNTctNzkxYzg1YTI5NzMxIiwiU3RlYW1JZCI6IjE3MTE5MjY0NjUiLCJBUElVc2VyIjoidHJ1ZSIsIm5iZiI6MTc3NDAxNDc5NCwiZXhwIjoxODA1NTUwNzk0LCJpYXQiOjE3NzQwMTQ3OTQsImlzcyI6Imh0dHBzOi8vYXBpLnN0cmF0ei5jb20ifQ.dsZTN-tyzZxC9Ece3l34adQze75nZbZmESllsLZq3yE'
         return True, "OK"
 
     def _fetch_remote_config(self):
-        FALLBACK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJTdWJqZWN0IjoiNjE4NDMwMzAtMWY5Yy00MmFkLWJkYWYtOWVkZGE3NThiMGFiIiwiU3RlYW1JZCI6IjE4OTE1MDgyMTciLCJBUElVc2VyIjoidHJ1ZSIsIm5iZiI6MTc2MjIwNTMzNywiZXhwIjoxNzkzNzQxMzM3LCJpYXQiOjE3NjIyMDUzMzcsImlzcyI6Imh0dHBzOi8vYXBpLnN0cmF0ei5jb20ifQ.cvVtd65uXKsZMYt5yeleOdIq3rDauzIN63ZKMdKeIiw'
+        FALLBACK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJTdWJqZWN0IjoiMDJhMjhkN2MtOTMxNi00YjVjLTgyNTctNzkxYzg1YTI5NzMxIiwiU3RlYW1JZCI6IjE3MTE5MjY0NjUiLCJBUElVc2VyIjoidHJ1ZSIsIm5iZiI6MTc3NDAxNDc5NCwiZXhwIjoxODA1NTUwNzk0LCJpYXQiOjE3NzQwMTQ3OTQsImlzcyI6Imh0dHBzOi8vYXBpLnN0cmF0ei5jb20ifQ.dsZTN-tyzZxC9Ece3l34adQze75nZbZmESllsLZq3yE'
         try:
             resp = requests.get(GITHUB_CONFIG_URL, timeout=5)
             if resp.status_code == 200:

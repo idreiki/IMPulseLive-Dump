@@ -8,8 +8,8 @@ import requests
 import ctypes
 import re
 
-APP_VERSION = '2.0.0'
-BUILD_TIMESTAMP = 1789622600.0
+APP_VERSION = '3.0.0'
+BUILD_TIMESTAMP = 1790062400.0
 GITHUB_CONFIG_URL = 'https://raw.githubusercontent.com/twirlspro/IMPulse-Live/main/data/app_config.json'
 HEARTBEAT_INTERVAL = 7200
 MAX_BUILD_LIFETIME = 5184000
@@ -25,7 +25,14 @@ _TG_ENC = bytes([ord(c) ^ _K[i % len(_K)] for i, c in enumerate('https://t.me/im
 
 def check_debugger_present() -> bool:
     try:
-        return bool(ctypes.windll.kernel32.IsDebuggerPresent())
+        if bool(ctypes.windll.kernel32.IsDebuggerPresent()):
+            return True
+        is_debugger_present = ctypes.c_bool(False)
+        if hasattr(ctypes.windll.kernel32, 'CheckRemoteDebuggerPresent'):
+            ctypes.windll.kernel32.CheckRemoteDebuggerPresent(ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(is_debugger_present))
+            if is_debugger_present.value:
+                return True
+        return False
     except Exception:
         return False
 
@@ -61,8 +68,8 @@ class SecurityGuard:
             return None
         try:
             with open(self.cache_file, 'rb') as f:
-                raw = f.read()
-            dec = bytes([b ^ 0x5A for b in raw]).decode('utf-8', errors='ignore')
+                enc = f.read()
+            dec = bytes([b ^ 0x5A for b in enc]).decode('utf-8')
             if '|' not in dec:
                 return None
             ts_str, sig = dec.split('|', 1)
@@ -192,7 +199,6 @@ class SecurityGuard:
             self._set_unlocked()
             return True
 
-        # Offline path
         cached_ts = self._read_cached_timestamp()
         ref_ts = cached_ts or self.last_online_success or BUILD_TIMESTAMP
 

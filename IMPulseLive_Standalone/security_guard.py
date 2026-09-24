@@ -2,8 +2,8 @@ import os
 import sys
 import time
 
-APP_VERSION = '2.0.0'
-BUILD_TIMESTAMP = 1789622600.0
+APP_VERSION = '3.0.0'
+BUILD_TIMESTAMP = 1790062400.0
 
 def check_debugger_present() -> bool:
     return False
