@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural DAG Studio | IMPulse Vision</title>
+    <style>
+        :root {
+            --bg-base: #070a10;
+            --bg-panel: #0d131f;
+            --bg-card: #131c2d;
+            --border-dim: #1e293b;
+            --border-glow: #2a3a54;
+            --cyan: #00e5ff;
+            --cyan-glow: rgba(0, 229, 255, 0.45);
+            --pink: #ff007f;
+            --pink-glow: rgba(255, 0, 127, 0.55);
+            --blue: #7aa2f7;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-base);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+        }
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 10px 16px;
+            gap: 10px;
+        }
+        /* HEADER */
+        .header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-dim);
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-title h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #00e5ff, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-title .badge {
+            font-size: 10px;
+            font-weight: 700;
+            background: rgba(0, 229, 255, 0.12);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 4px;
+            padding: 2px 6px;
+            text-transform: uppercase;
+        }
+        .presets-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .btn-preset {
+            background: #1e293b;
+            color: var(--text-sub);
+            border: 1px solid var(--border-dim);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-preset:hover {
+            color: var(--text-main);
+            border-color: var(--cyan);
+            background: #24344d;
+        }
+        /* MAIN WORKSPACE */
+        .workspace {
+            display: grid;
+            grid-template-columns: 290px 1fr;
+            gap: 12px;
+            flex: 1;
+            min-height: 0;
+            transition: grid-template-columns 0.25s ease;
+        }
+        .workspace.collapsed-panel {
+            grid-template-columns: 0px 1fr;
+        }
+        /* CONTROL PANEL */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-dim);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .workspace.collapsed-panel .panel {
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+            padding: 0;
+            border: none;
+        }
+        .panel-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            margin-bottom: -4px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .control-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-sub);
+            display: flex;
+            justify-content: space-between;
+        }
+        .control-label .val-badge {
+            color: var(--cyan);
+            font-family: monospace;
+            font-weight: bold;
+        }
+        select {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            color: var(--text-main);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 12px;
+            outline: none;
+        }
+        select:focus { border-color: var(--cyan); }
+        select option { background: #0f172a; color: #fff; }
+        input[type="range"] {
+            accent-color: var(--cyan);
+            cursor: pointer;
+            height: 5px;
+        }
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-glow);
+        }
+        .switch-text { font-size: 11px; font-weight: 600; }
+        .switch-sub { font-size: 10px; color: var(--text-sub); }
+        .switch-input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--pink);
+            cursor: pointer;
+        }
+        .btn-generate {
+            background: linear-gradient(135deg, #00e5ff 0%, #0099cc 100%);
+            color: #050a14;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            border-radius: 7px;
+            padding: 10px 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px var(--cyan-glow);
+            transition: transform 0.15s;
+        }
+        .btn-generate:hover { transform: translateY(-1px); }
+        /* STAGE CANVAS */
+        .stage-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-dim);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            height: 100%;
+        }
+        .stage-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background: rgba(13, 19, 31, 0.95);
+            border-bottom: 1px solid var(--border-dim);
+            z-index: 10;
+            gap: 10px;
+        }
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn-tool {
+            background: #1e293b;
+            color: var(--text-main);
+            border: 1px solid var(--border-glow);
+            padding: 5px 9px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s;
+        }
+        .btn-tool:hover { border-color: var(--cyan); background: #24344d; }
+        .btn-tool.active {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+        /* FOCUS ACTIVE BAR (Appears when branch is isolated) */
+        .focus-banner {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 229, 255, 0.15);
+            border: 1px solid var(--cyan);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 11px;
+            color: #fff;
+            box-shadow: 0 0 12px var(--cyan-glow);
+            animation: fadeIn 0.2s ease;
+        }
+        .focus-banner .focus-name {
+            font-weight: 800;
+            color: #fff;
+            background: #0d2238;
+            border: 1px solid var(--cyan);
+            padding: 1px 7px;
+            border-radius: 4px;
+        }
+        .btn-focus-repack {
+            background: var(--cyan);
+            color: #050a14;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-focus-repack:hover { background: #5df0ff; }
+        .btn-focus-clear {
+            background: #2a3a54;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-focus-clear:hover { background: #3d5377; }
+        .legend {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-sub);
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .line-dot { width: 12px; height: 3px; border-radius: 2px; }
+        .dot-core { background: var(--cyan); height: 5px; box-shadow: 0 0 8px var(--cyan); }
+        .dot-alt { background: var(--blue); height: 3px; }
+        .dot-must { background: var(--pink); height: 5px; box-shadow: 0 0 10px var(--pink); }
+        .zoom-controls {
+            display: flex;
+            gap: 4px;
+        }
+        .btn-zoom {
+            background: #1e293b;
+            color: var(--text-main);
+            border: 1px solid var(--border-glow);
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .btn-zoom:hover { background: #2d3e5e; border-color: var(--cyan); }
+        /* VIEWPORT WITHOUT BOUNDARY CLIPPING */
+        #graph-viewport {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: radial-gradient(circle at center, #101726 0%, #06090f 100%);
+            overflow: hidden;
+            cursor: grab;
+        }
+        #graph-viewport:active { cursor: grabbing; }
+        #graph-target {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #graph-target svg {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+            display: block !important;
+            overflow: visible !important;
+        }
+        /* HIERARCHICAL CARD SIZES (CORE / MUST / ALT / NICHE) */
+        .tree-root-card {
+            background: #162032;
+            border: 2px solid var(--cyan);
+            border-radius: 8px;
+            padding: 8px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            box-shadow: 0 0 16px var(--cyan-glow);
+            cursor: pointer;
+        }
+        .root-badge {
+            font-size: 9px;
+            font-weight: 800;
+            background: var(--cyan);
+            color: #060b14;
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .root-title { font-size: 12px; font-weight: 700; color: #fff; }
+        .tree-card {
+            background: #131b2a;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer;
+            user-select: none;
+        }
+        .tree-card:hover {
+            transform: scale(1.08);
+            z-index: 99;
+        }
+        .tree-card.is-focus-anchor {
+            outline: 3px solid #fff !important;
+            box-shadow: 0 0 25px #fff, 0 0 40px var(--cyan) !important;
+            transform: scale(1.12) !important;
+            z-index: 120 !important;
+        }
+        /* TIER 1: CORE STEM (LARGE & PROMINENT) */
+        .card-tier-core {
+            border: 3px solid var(--cyan) !important;
+            box-shadow: 0 0 20px var(--cyan-glow) !important;
+            background: #0d2238 !important;
+            padding: 8px 12px !important;
+            min-width: 105px !important;
+        }
+        .card-tier-core .item-thumb {
+            width: 62px !important;
+            height: 44px !important;
+            border: 2px solid var(--cyan) !important;
+        }
+        .card-tier-core .item-label {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            color: #ffffff !important;
+        }
+        .card-tier-core .slot-tag {
+            color: var(--cyan) !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+        }
+        .item-stats {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-top: 3px;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 1px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+        }
+        .card-tier-core .item-stats {
+            color: #5df0ff;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+        }
+        .card-tier-must .item-stats {
+            color: #ff66b2;
+            border: 1px solid rgba(255, 0, 127, 0.3);
+        }
+        .card-tier-alt .item-stats {
+            color: #93c5fd;
+        }
+        /* TIER 2: MUST BUY COUNTERS (LARGE & HOT PINK) */
+        .card-tier-must {
+            border: 3px solid var(--pink) !important;
+            box-shadow: 0 0 24px var(--pink-glow) !important;
+            background: #29081c !important;
+            padding: 8px 12px !important;
+            min-width: 105px !important;
+        }
+        .card-tier-must .item-thumb {
+            width: 62px !important;
+            height: 44px !important;
+            border: 2px solid var(--pink) !important;
+        }
+        .card-tier-must .item-label {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            color: #ffffff !important;
+        }
+        .card-tier-must .slot-tag {
+            color: var(--pink) !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+        }
+        /* TIER 3: VIABLE ALTERNATIVES (MEDIUM) */
+        .card-tier-alt {
+            border: 2px solid var(--blue) !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+            padding: 6px 9px !important;
+            min-width: 85px !important;
+        }
+        .card-tier-alt .item-thumb {
+            width: 48px !important;
+            height: 34px !important;
+        }
+        .card-tier-alt .item-label {
+            font-size: 11px !important;
+            font-weight: 600 !important;
+        }
+        .card-tier-alt .slot-tag {
+            color: var(--blue) !important;
+            font-size: 8px !important;
+        }
+        /* TIER 4: NICHE / LOW PROB (COMPACT) */
+        .card-tier-niche {
+            border: 1px solid #334155 !important;
+            background: #0f1623 !important;
+            padding: 5px 7px !important;
+            min-width: 72px !important;
+            opacity: 0.88;
+        }
+        .card-tier-niche .item-thumb {
+            width: 36px !important;
+            height: 25px !important;
+            filter: brightness(0.85);
+        }
+        .card-tier-niche .item-label {
+            font-size: 9px !important;
+            color: #94a3b8 !important;
+        }
+        .card-tier-niche .slot-tag {
+            color: #64748b !important;
+            font-size: 8px !important;
+        }
+        /* PURE GENERATIVE TIERS (MAGENTA / NEON PINK PALETTE) */
+        .root-gen {
+            border: 2px solid #ff007f !important;
+            box-shadow: 0 0 18px rgba(255, 0, 127, 0.45) !important;
+        }
+        .root-badge-gen {
+            font-size: 9px;
+            font-weight: 800;
+            background: #ff007f;
+            color: #fff;
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .item-stats-pink {
+            color: #ff77b9 !important;
+            border: 1px solid rgba(255, 0, 127, 0.4) !important;
+            background: rgba(41, 8, 28, 0.75) !important;
+        }
+        .card-tier-gen-core {
+            border: 3px solid #ff007f !important;
+            box-shadow: 0 0 24px rgba(255, 0, 127, 0.5) !important;
+            background: #25071a !important;
+            padding: 8px 12px !important;
+            min-width: 105px !important;
+        }
+        .card-tier-gen-core .item-thumb {
+            width: 62px !important;
+            height: 44px !important;
+            border: 2px solid #ff007f !important;
+        }
+        .card-tier-gen-core .item-label {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            color: #ffffff !important;
+        }
+        .card-tier-gen-core .slot-tag {
+            color: #ff007f !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+        }
+        .card-tier-gen-alt {
+            border: 2px solid #e056fd !important;
+            box-shadow: 0 0 16px rgba(224, 86, 253, 0.35) !important;
+            background: #1d0924 !important;
+            padding: 6px 9px !important;
+            min-width: 85px !important;
+        }
+        .card-tier-gen-alt .item-thumb {
+            width: 48px !important;
+            height: 34px !important;
+            border: 1px solid #e056fd !important;
+        }
+        .card-tier-gen-alt .item-label {
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #f5d0fe !important;
+        }
+        .card-tier-gen-alt .slot-tag {
+            color: #e056fd !important;
+            font-size: 8px !important;
+        }
+        .card-tier-gen-niche {
+            border: 1px solid #86198f !important;
+            background: #14051a !important;
+            padding: 5px 7px !important;
+            min-width: 72px !important;
+            opacity: 0.9;
+        }
+        .card-tier-gen-niche .item-thumb {
+            width: 36px !important;
+            height: 25px !important;
+            border: 1px solid #a21caf !important;
+        }
+        .card-tier-gen-niche .item-label {
+            font-size: 9px !important;
+            color: #f0abfc !important;
+        }
+        .card-tier-gen-niche .slot-tag {
+            color: #d946ef !important;
+            font-size: 8px !important;
+        }
+        .item-thumb {
+            border-radius: 4px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: #000;
+        }
+        .item-label {
+            margin-top: 3px;
+            text-align: center;
+            white-space: nowrap;
+            max-width: 115px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .edgeLabel {
+            background-color: rgba(13, 19, 31, 0.92) !important;
+            border-radius: 4px;
+            padding: 2px 5px;
+            color: #e2e8f0 !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(7, 10, 16, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--cyan);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* ENGINE MODE SELECTOR */
+        .mode-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            margin-bottom: 2px;
+        }
+        .mode-btn {
+            padding: 8px 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid var(--border-dim);
+            background: #1e293b;
+            color: var(--text-sub);
+            transition: all 0.15s ease;
+            line-height: 1.25;
+        }
+        .mode-btn:hover {
+            border-color: var(--cyan);
+            color: #fff;
+        }
+        .mode-btn.active {
+            background: rgba(0, 229, 255, 0.18);
+            border-color: var(--cyan);
+            color: #5df0ff;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+        }
+        /* K-MEANS CLUSTERS LIST (1 COLUMN FULL WIDTH, NO CUTOFF) */
+        .cluster-rows-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 2px;
+            margin-top: 4px;
+        }
+        .cluster-rows-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .cluster-rows-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        .btn-cluster-row {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            background: #141d2c;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            padding: 6px 9px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+        }
+        .cluster-row-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cluster-badge-tag {
+            background: rgba(0, 229, 255, 0.14);
+            color: var(--cyan);
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            flex-shrink: 0;
+        }
+        .cluster-title-text {
+            font-size: 11px;
+            font-weight: 700;
+            color: #e2e8f0;
+            white-space: normal;
+            line-height: 1.25;
+        }
+        .cluster-samples-sub {
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 3px;
+            padding-left: 2px;
+            white-space: normal;
+            line-height: 1.2;
+        }
+        .btn-cluster-row:hover {
+            border-color: var(--cyan);
+            background: #1c2b44;
+        }
+        .btn-cluster-row:hover .cluster-title-text {
+            color: #fff;
+        }
+        .btn-cluster-row.active {
+            background: rgba(0, 229, 255, 0.18);
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+        }
+        .btn-cluster-row.active .cluster-badge-tag {
+            background: var(--cyan);
+            color: #060b14;
+        }
+        .btn-cluster-row.active .cluster-title-text {
+            color: #5df0ff;
+        }
+        .btn-cluster-row.active .cluster-samples-sub {
+            color: #93c5fd;
+        }
+        .btn-threat-clear {
+            width: 100%;
+            margin-top: 6px;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 5px;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-threat-clear:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: #ef4444;
+            color: #fff;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose',
+            maxTextSize: 9000000,
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+        window.mermaid = mermaid;
+    </script>
+<script>
+(function() {
+    // Disable right-click context menu (Inspect Element block)
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+    // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U, Ctrl+S
+    document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 123) { e.preventDefault(); return false; }
+        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
+            e.preventDefault(); return false;
+        }
+        if (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83)) {
+            e.preventDefault(); return false;
+        }
+    });
+})();
+</script>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header-bar">
+            <div class="header-title">
+                <h1>Procedural DAG Studio</h1>
+                <span class="badge">Engine 2.0</span>
+            </div>
+            <div class="presets-row">
+                <span style="font-size:11px; color:var(--text-sub); margin-right:4px;">Пресеты:</span>
+                <button class="btn-preset" onclick="applyPreset('pure_base')">🏛️ Чистая история (0)</button>
+                <button class="btn-preset" onclick="applyPreset('brothers_2')">👬 2 брата (Близкие)</button>
+                <button class="btn-preset" onclick="applyPreset('brothers_5')">🌿 5 братьев (Широкий пул)</button>
+                <button class="btn-preset" onclick="applyPreset('brothers_10')">🌳 10 братьев (Макс. пул)</button>
+            </div>
+        </div>
+        <div class="workspace" id="workspace">
+            <div class="panel">
+                <div class="panel-section-title">Параметры дерева и Братьев</div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Похожие герои-братья</span>
+                        <span class="val-badge" id="val-branches">0 брата</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">0 = Чистая история героя • 2 = Близкие братья • 10 = Максимальный пул</div>
+                    <input type="range" id="branches" min="0" max="10" value="0" step="1" 
+                        oninput="updateBranchesBadge(this.value)" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Макс. вариаций на шаг</span>
+                        <span class="val-badge" id="val-top-branches">0 (Без лимита)</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">0 = без лимита</div>
+                    <input type="range" id="top_branches" min="0" max="10" value="0" step="1" 
+                        oninput="document.getElementById('val-top-branches').textContent = this.value == 0 ? '0 (Без лимита)' : this.value + ' шт.'" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Глубина дерева (Max Slots)</span>
+                        <span class="val-badge" id="val-depth">6 слотов</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">Сколько слотов вперед строить траекторию (от 3 до 15)</div>
+                    <input type="range" id="depth" min="3" max="15" value="6" step="1" 
+                        oninput="document.getElementById('val-depth').textContent = this.value + ' слотов'" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Порог отсечения частоты (Cutoff)</span>
+                        <span class="val-badge" id="val-cutoff">0% (All)</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">0 = видеть абсолютно все покупки • 30 = только самое частое</div>
+                    <input type="range" id="cutoff" min="0" max="30" value="0" step="1" 
+                        oninput="document.getElementById('val-cutoff').textContent = (this.value == '0' ? '0% (Все)' : this.value + '%')" 
+                        onchange="fetchGraph()">
+                </div>
+                <input type="hidden" id="gen_strength" value="50">
+                <input type="hidden" id="trunk_rigidity" value="2">
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Архитектура графа</span>
+                    </div>
+                    <select id="context_mode" class="glass-input" style="width: 100%; margin-top: 5px;" onchange="fetchGraph()">
+                        <option value="inventory_dag" selected>Граф инвентарей (Склейка по составу)</option>
+                        <option value="slot_dag">Слияние по слотам (Режим пользователя)</option>
+                        <option value="tree">Строгое дерево (История порядка)</option>
+                    </select>
+                    <div style="font-size:10px; color:#64748b; margin-top:4px;">Склейка объединяет одинаковые вещи. Слияние по слотам схлопывает всё в один предмет на шаге.</div>
+                </div>
+                <div class="panel-section-title" style="margin-top:8px;">Герой и Роль</div>
+                <div class="control-group">
+                    <label class="control-label">Ваш герой</label>
+                    <select id="hero" onchange="fetchGraph()">
+                        {% for h in heroes %}
+                        <option value="{{ h.id }}" {% if h.id == 17 %}selected{% endif %}>{{ h.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Роль (Позиция)</label>
+                    <select id="role" onchange="fetchGraph()">
+                        <option value="1">Position 1 (Safe Lane Carry)</option>
+                        <option value="2" selected>Position 2 (Mid)</option>
+                        <option value="3">Position 3 (Offlane)</option>
+                        <option value="4">Position 4 (Soft Support)</option>
+                        <option value="5">Position 5 (Hard Support)</option>
+                    </select>
+                </div>
+                <div class="control-group" id="hero-cluster-container" style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:7px 9px; margin-top:2px;">
+                    <div style="font-size:9px; font-weight:800; color:var(--cyan); letter-spacing:0.5px;">КЛАСТЕР ВЫБРАННОГО ГЕРОЯ</div>
+                    <div id="hero-cluster-name" style="font-size:11px; font-weight:800; color:#5df0ff; margin-top:2px;">Определение...</div>
+                    <div id="hero-cluster-sub" style="font-size:9px; color:#94a3b8; margin-top:2px; line-height:1.2;">В чистой генерации сборки строятся по пулу этого кластера</div>
+                </div>
+                <div class="panel-section-title" id="threats-title" style="margin-top:8px;">Вражеские герои (Угрозы)</div>
+                <div id="threats-block" class="control-group">
+                    <div style="font-size:10px; color:#64748b; margin-bottom:4px;">Выберите конкретных врагов для адаптации сборки:</div>
+                    <select id="enemies" multiple style="height: 120px;" onchange="fetchGraph()">
+                        {% for h in heroes %}
+                        <option value="{{ h.id }}" {% if h.id == 104 %}selected{% endif %}>{{ h.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-threat-clear" onclick="document.getElementById('enemies').selectedIndex = -1; fetchGraph();">🚫 Сбросить врагов</button>
+                </div>
+                <div class="panel-section-title" id="draft-adapt-title" style="margin-top:8px;">Метод поиска и Оценка</div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Баланс частотности</span>
+                        <span class="val-badge" id="val-global-weight">0% (Локальный)</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">Оценка Score: 0% (строгая цепочка) - 100% (Глобальная база)</div>
+                    <input type="range" id="global_weight" min="0" max="100" value="0" step="5" 
+                        oninput="updateGlobalWeightBadge(this.value)" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Влияние всей сборки</span>
+                        <span class="val-badge" id="val-path-weight">0% (Локальный шаг)</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">0% (Оценка только шага) - 100% (Оценка всей сборки целиком)</div>
+                    <input type="range" id="path_weight" min="0" max="100" value="0" step="5" 
+                        oninput="updatePathWeightBadge(this.value)" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group" id="group-sensitivity">
+                    <div class="control-label">
+                        <span>Влияние врагов (Адаптивность)</span>
+                        <span class="val-badge" id="val-sensitivity">50% (Баланс)</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">Усиливает вероятность контр-предметов против кластеров врагов</div>
+                    <input type="range" id="sensitivity" min="0" max="300" value="50" step="5" 
+                        oninput="updateSensitivityBadge(this.value)" 
+                        onchange="fetchGraph()">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Порог подсветки Иксов</span>
+                        <span class="val-badge" id="val-lift">x1.3</span>
+                    </div>
+                    <div style="font-size:10px; color:#64748b; margin-top:-2px; margin-bottom:2px;">Какой множитель считать значимым для желтой метки</div>
+                    <input type="range" id="lift" min="1.0" max="2.0" value="1.3" step="0.1" 
+                        oninput="document.getElementById('val-lift').textContent = 'x' + parseFloat(this.value).toFixed(1)" 
+                        onchange="fetchGraph()">
+                </div>
+                <button class="btn-generate" style="margin-top:10px;" onclick="fetchGraph()">⚡ Перегенерировать дерево</button>
+            </div>
+            <div class="stage-card">
+                <div class="stage-toolbar">
+                    <div class="toolbar-left">
+                        <button class="btn-tool" onclick="togglePanel()" id="btn-toggle" title="Toggle Sidebar">
+                            <span>⛶</span> <span id="toggle-text">Full Screen</span>
+                        </button>
+                        <button class="btn-tool" onclick="toggleDirection()" id="btn-direction" title="Toggle Layout Flow (Top-Down or Left-Right)">
+                            <span id="direction-icon">⬇</span> <span id="direction-text">Vertical (TD)</span>
+                        </button>
+                        <div class="focus-banner" id="focus-banner">
+                            <span>Isolated Branch:</span>
+                            <span class="focus-name" id="focus-item-name">Desolator</span>
+                            <button class="btn-focus-repack" onclick="compactIsolatedBranch()" title="Recenter and compact isolated branch to fit screen">🔍 Compact View</button>
+                            <button class="btn-focus-clear" onclick="restoreAllBranches()" title="Restore Full DAG">✕ Show All Branches</button>
+                        </div>
+                        <div class="legend" id="toolbar-legend">
+                            <div class="legend-item"><div class="line-dot dot-core"></div><span>История / База</span></div>
+                            <div class="legend-item"><div class="line-dot dot-alt"></div><span>Альтернатива</span></div>
+                            <div class="legend-item"><div class="line-dot dot-must"></div><span>ML Генерация / Контр</span></div>
+                        </div>
+                    </div>
+                    <div class="zoom-controls">
+                        <button class="btn-zoom" onclick="zoomIn()" title="Zoom In">+</button>
+                        <button class="btn-zoom" onclick="zoomOut()" title="Zoom Out">−</button>
+                        <button class="btn-zoom" onclick="resetZoom()" title="Reset / Fit View">⟲</button>
+                    </div>
+                </div>
+                <div id="graph-viewport">
+                    <div id="graph-target"></div>
+                </div>
+                <div class="loading-overlay" id="loader">Computing Procedural Tree...</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let panZoomInstance = null;
+        let currentDirection = 'TD';
+        let currentFocusNode = null;
+        let currentIsolatedNode = null;
+        let currentAdjacency = {};
+        let currentRevAdjacency = {};
+        let currentEdgeList = [];
+        function updateGenStrengthBadge(val) {
+            const num = parseInt(val);
+            let desc = "Смешанный (Гибрид)";
+            if (num === 0) desc = "Чистая история";
+            else if (num === 100) desc = "Чистая генерация";
+            else if (num < 40) desc = "Малая генерация";
+            else if (num > 70) desc = "Высокая генерация";
+            document.getElementById('val-gen-strength').textContent = `${num}% (${desc})`;
+            // Dynamic clarity: dim controls that do not apply to Pure History (0%)
+            const groupSens = document.getElementById('group-sensitivity');
+            const groupLift = document.getElementById('group-lift');
+            const draftTitle = document.getElementById('draft-adapt-title');
+            if (num === 0) {
+                if (groupSens) { groupSens.style.opacity = '0.35'; groupSens.style.pointerEvents = 'none'; }
+                if (groupLift) { groupLift.style.opacity = '0.35'; groupLift.style.pointerEvents = 'none'; }
+                if (draftTitle) { draftTitle.textContent = 'Адаптация к драфту (Не активно в истории 0%)'; draftTitle.style.color = '#64748b'; }
+            } else {
+                if (groupSens) { groupSens.style.opacity = '1'; groupSens.style.pointerEvents = 'auto'; }
+                if (groupLift) { groupLift.style.opacity = '1'; groupLift.style.pointerEvents = 'auto'; }
+                if (draftTitle) { draftTitle.textContent = 'Адаптация к драфту (Гибрид & Генерация)'; draftTitle.style.color = 'var(--cyan)'; }
+            }
+        }
+        function updateRigidityBadge(val) {
+            const num = parseInt(val);
+            if (num === 0) {
+                document.getElementById('val-rigidity').textContent = '0 (Ветвление со слота 1)';
+            } else {
+                document.getElementById('val-rigidity').textContent = `Слот ${num} (Ветвление со слота ${num + 1})`;
+            }
+        }
+        function toggleDirection() {
+            currentDirection = (currentDirection === 'TD') ? 'LR' : 'TD';
+            document.getElementById('direction-text').textContent = (currentDirection === 'TD') ? 'Vertical (TD)' : 'Horizontal (LR)';
+            document.getElementById('direction-icon').textContent = (currentDirection === 'TD') ? '⬇' : '➡';
+            fetchGraph();
+        }
+        function togglePanel() {
+            const ws = document.getElementById('workspace');
+            const txt = document.getElementById('toggle-text');
+            ws.classList.toggle('collapsed-panel');
+            const isCollapsed = ws.classList.contains('collapsed-panel');
+            txt.textContent = isCollapsed ? 'Show Sidebar' : 'Full Screen';
+            setTimeout(() => {
+                if (panZoomInstance) {
+                    panZoomInstance.resize();
+                    panZoomInstance.fit();
+                    panZoomInstance.center();
+                }
+            }, 300);
+        }
+        function updateGlobalWeightBadge(val) {
+            const num = parseInt(val);
+            let desc = "Баланс";
+            if (num === 0) desc = "Только локальная ветка";
+            else if (num === 100) desc = "Только глобальная база";
+            document.getElementById('val-global-weight').textContent = `${num}% (${desc})`;
+        }
+        function updatePathWeightBadge(val) {
+            const num = parseInt(val);
+            let desc = "Баланс";
+            if (num === 0) desc = "Жадный шаг";
+            else if (num === 100) desc = "Вся сборка целиком";
+            document.getElementById('val-path-weight').textContent = `${num}% (${desc})`;
+        }
+        function updateSensitivityBadge(val) {
+            const num = parseInt(val);
+            let desc = "Баланс";
+            if (num === 0) desc = "Без врагов";
+            else if (num < 40) desc = "Слабая";
+            else if (num > 70) desc = "Максимальная";
+            document.getElementById('val-sensitivity').textContent = `${num}% (${desc})`;
+        }
+        function toggleClusterChip(btn) {
+            btn.classList.toggle('active');
+            fetchGraph();
+        }
+        function clearAllClusters() {
+            document.querySelectorAll('.btn-cluster-row').forEach(b => b.classList.remove('active'));
+            fetchGraph();
+        }
+        function updateBranchesBadge(val) {
+            const num = parseInt(val);
+            if (num === 0) {
+                document.getElementById('val-branches').textContent = '0 (Чистая история)';
+            } else if (num === 1) {
+                document.getElementById('val-branches').textContent = '1 брат';
+            } else if (num < 5) {
+                document.getElementById('val-branches').textContent = `${num} брата`;
+            } else {
+                document.getElementById('val-branches').textContent = `${num} братьев`;
+            }
+        }
+        function applyPreset(name) {
+            currentFocusNode = null;
+            currentIsolatedNode = null;
+            hideFocusBanner();
+            const branchesEl = document.getElementById('branches');
+            const depthEl = document.getElementById('depth');
+            const cutoffEl = document.getElementById('cutoff');
+            if (name === 'pure_base') {
+                branchesEl.value = 0;
+                updateBranchesBadge(0);
+                depthEl.value = 6;
+                document.getElementById('val-depth').textContent = '6 слотов';
+                cutoffEl.value = 5;
+                document.getElementById('val-cutoff').textContent = '5%';
+            } else if (name === 'brothers_2') {
+                branchesEl.value = 2;
+                updateBranchesBadge(2);
+                depthEl.value = 6;
+                document.getElementById('val-depth').textContent = '6 слотов';
+                cutoffEl.value = 5;
+                document.getElementById('val-cutoff').textContent = '5%';
+            } else if (name === 'brothers_5') {
+                branchesEl.value = 5;
+                updateBranchesBadge(5);
+                depthEl.value = 7;
+                document.getElementById('val-depth').textContent = '7 слотов';
+                cutoffEl.value = 4;
+                document.getElementById('val-cutoff').textContent = '4%';
+            } else if (name === 'brothers_10') {
+                branchesEl.value = 10;
+                updateBranchesBadge(10);
+                depthEl.value = 8;
+                document.getElementById('val-depth').textContent = '8 слотов';
+                cutoffEl.value = 3;
+                document.getElementById('val-cutoff').textContent = '3%';
+            }
+            fetchGraph();
+        }
+        function showFocusBanner(name) {
+            const banner = document.getElementById('focus-banner');
+            document.getElementById('focus-item-name').textContent = name;
+            banner.style.display = 'flex';
+        }
+        function hideFocusBanner() {
+            document.getElementById('focus-banner').style.display = 'none';
+        }
+        function compactIsolatedBranch() {
+            if (currentIsolatedNode) {
+                fetchGraph(currentIsolatedNode);
+            }
+        }
+        function isolateBranch(stateId, itemTitle) {
+            if (currentFocusNode === stateId || stateId === '0_ROOT') {
+                restoreAllBranches();
+                return;
+            }
+            currentFocusNode = stateId;
+            showFocusBanner(itemTitle);
+            fetchGraph(stateId);
+        }
+        // RESTORE ALL HIDDEN NODES AND EDGES
+        function restoreAllBranches() {
+            currentIsolatedNode = null;
+            currentFocusNode = null;
+            hideFocusBanner();
+            fetchGraph(null);
+        }
+        async function fetchGraph(focusOverride = null) {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+            const hero = document.getElementById('hero').value;
+            const role = document.getElementById('role').value;
+            const selectEnemies = document.getElementById('enemies');
+            const enemies = Array.from(selectEnemies.selectedOptions).map(opt => opt.value).join(',');
+            const genStrength = (parseFloat(document.getElementById('gen_strength').value) / 100).toFixed(2);
+            const trunkRigidity = document.getElementById('trunk_rigidity').value;
+            const contextMode = document.getElementById('context_mode').value;
+            const sensitivity = (parseFloat(document.getElementById('sensitivity').value) / 100).toFixed(2);
+            const cutoff = (parseFloat(document.getElementById('cutoff').value) / 100).toFixed(2);
+            const branches = document.getElementById('branches').value;
+            const topBranches = document.getElementById('top_branches').value;
+            const depth = document.getElementById('depth').value;
+            const lift = document.getElementById('lift').value;
+            const globalWeight = (parseFloat(document.getElementById('global_weight').value) / 100).toFixed(2);
+            const pathWeight = (parseFloat(document.getElementById('path_weight').value) / 100).toFixed(2);
+            const focus = (focusOverride !== null) ? focusOverride : (currentFocusNode || '');
+            try {
+                const url = `/api/sandbox/dag?hero=${hero}&role=${role}&enemies=${enemies}&gen_strength=${genStrength}&trunk_rigidity=${trunkRigidity}&context_mode=${contextMode}&sensitivity=${sensitivity}&min_prob=${cutoff}&max_branches=${branches}&max_top_branches=${topBranches}&max_depth=${depth}&lift_thresh=${lift}&global_weight=${globalWeight}&path_weight=${pathWeight}&focus=${focus}&direction=${currentDirection}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.hero_cluster) {
+                    document.getElementById('hero-cluster-name').textContent = data.hero_cluster.name;
+                    document.getElementById('hero-cluster-sub').textContent = `${data.hero_cluster.count} героев (${data.hero_cluster.sample}...) • Пул для чистой генерации`;
+                } else {
+                    document.getElementById('hero-cluster-name').textContent = 'Индивидуальный пул';
+                    document.getElementById('hero-cluster-sub').textContent = 'Сборки строятся по данным текущего героя';
+                }
+                if (panZoomInstance) {
+                    panZoomInstance.destroy();
+                    panZoomInstance = null;
+                }
+                currentEdgeList = data.edge_list || [];
+                currentAdjacency = data.adjacency || {};
+                currentRevAdjacency = {};
+                for (const [p, children] of Object.entries(currentAdjacency)) {
+                    for (const ch of children) {
+                        currentRevAdjacency[ch] = currentRevAdjacency[ch] || [];
+                        currentRevAdjacency[ch].push(p);
+                    }
+                }
+                const target = document.getElementById('graph-target');
+                target.innerHTML = '';
+                if (data.mermaid) {
+                    const uniqueId = 'treeSvg_' + Date.now();
+                    const { svg } = await window.mermaid.render(uniqueId, data.mermaid);
+                    target.innerHTML = svg;
+                    // Image fallback to CDN
+                    target.querySelectorAll('img.item-thumb').forEach(img => {
+                        img.addEventListener('error', function() {
+                            if (!this.dataset.triedCdn) {
+                                this.dataset.triedCdn = 'true';
+                                const filename = this.src.split('/').pop();
+                                this.src = 'https://cdn.stratz.com/images/dota2/items/' + filename;
+                            }
+                        });
+                    });
+                    // INSTANT CLICK-TO-ISOLATE: Completely hides all unrelated nodes and edges!
+                    target.querySelectorAll('[data-node-id]').forEach(card => {
+                        card.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const stateId = card.getAttribute('data-node-id');
+                            const title = card.getAttribute('data-title') || card.querySelector('.item-label')?.textContent || stateId;
+                            isolateBranch(stateId, title);
+                        });
+                    });
+                    // Click empty canvas to restore all
+                    document.getElementById('graph-viewport').addEventListener('click', (e) => {
+                        if (e.target.closest('[data-node-id]')) return;
+                        if (currentIsolatedNode && !currentFocusNode) {
+                            restoreAllBranches();
+                        }
+                    });
+                    const svgEl = target.querySelector('svg');
+                    if (svgEl) {
+                        svgEl.removeAttribute('max-width');
+                        svgEl.removeAttribute('width');
+                        svgEl.removeAttribute('height');
+                        svgEl.style.width = '100%';
+                        svgEl.style.height = '100%';
+                        svgEl.style.maxWidth = 'none';
+                        svgEl.style.maxHeight = 'none';
+                        svgEl.style.display = 'block';
+                        svgEl.style.overflow = 'visible';
+                        panZoomInstance = svgPanZoom(svgEl, {
+                            zoomEnabled: true,
+                            controlIconsEnabled: false,
+                            fit: true,
+                            center: true,
+                            minZoom: 0.15,
+                            maxZoom: 8.0,
+                            dblClickZoomEnabled: true,
+                            mouseWheelZoomEnabled: true
+                        });
+                    }
+                } else {
+                    target.innerHTML = `<span style="color:#ef4444; font-weight:bold;">Error: ${data.error || 'No graph data'}</span>`;
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('graph-target').innerHTML = `<span style="color:#ef4444;">Render Error: ${err.message}</span>`;
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+        function zoomIn() { if (panZoomInstance) panZoomInstance.zoomIn(); }
+        function zoomOut() { if (panZoomInstance) panZoomInstance.zoomOut(); }
+        function resetZoom() {
+            if (panZoomInstance) {
+                panZoomInstance.reset();
+                panZoomInstance.fit();
+                panZoomInstance.center();
+            }
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => fetchGraph(), 300);
+        });
+    </script>
+</body>
+</html>

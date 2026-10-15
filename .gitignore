@@ -7,11 +7,17 @@ __pycache__/
 *.log
 .license_cache
 scan_debug.log
+crash_log.txt
 
 # Original bulky binaries
 IMPulseLive.exe
 IMPulseLive/
 IMPulseLive-new/
+IMPulseLive_v4_raw/
+IMPulseLive.exe_extracted/
+IMPulseLive (2).zip
+pyinstxtractor.py
+temp_data/
 old/
 
 # OS / Editor files
